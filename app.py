@@ -178,7 +178,7 @@ class App(ctk.CTk):
         ctk.CTkLabel(inner, text="بيان تسليم الارساليات الصادرة",
                      font=_font(22, bold=True), text_color=TEXT_PRI).pack()
         ctk.CTkLabel(inner,
-                     text="المركز اللوجيستى بالمنصورة 9900",
+                     text="المركز اللوجيستى بالمنصورة  ◈  9900",
                      font=_font(12), text_color=TEXT_GOLD).pack(pady=(3, 0))
 
     # ─────────────────────────────────────────
@@ -206,7 +206,7 @@ class App(ctk.CTk):
         # ── Drop zone ──
         self._drop_zone = ctk.CTkFrame(
             inner, fg_color=BG_INPUT, corner_radius=12,
-            border_width=2, border_color=BORDER_C, height=180,
+            border_width=2, border_color=BORDER_C, height=160,
         )
         self._drop_zone.pack(fill="x", pady=(0, 8))
         self._drop_zone.pack_propagate(False)
@@ -216,13 +216,13 @@ class App(ctk.CTk):
 
         self._drop_lbl = ctk.CTkLabel(
             self._drop_zone, text="اسحب ملف Excel وأفلته هنا",
-            font=_font(10, bold=True), text_color=TEXT_SEC,
+            font=_font(11, bold=True), text_color=TEXT_SEC,
         )
         self._drop_lbl.place(relx=0.5, rely=0.57, anchor="center")
 
         self._drop_sub = ctk.CTkLabel(
             self._drop_zone, text="يدعم  .xlsx   .xls   .xlsm",
-            font=_font(8), text_color=TEXT_PRI,
+            font=_font(8), text_color=TEXT_DIM,
         )
         self._drop_sub.place(relx=0.5, rely=0.78, anchor="center")
 
@@ -546,6 +546,7 @@ class App(ctk.CTk):
                 out = build_workbook(
                     raw_df, filtered_df, out_dir,
                     lambda m: self.after(0, self._log, m),
+                    self._after_6pm.get(),
                 )
                 self.after(0, self._progress.set, 1.0)
                 from config import SECTOR_SHEETS

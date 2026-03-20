@@ -266,7 +266,7 @@ def write_ijmaly(wb: Workbook, sector_totals: dict):
 # MAIN EXPORT FUNCTION
 # ─────────────────────────────────────────────
 def build_workbook(raw_df: pd.DataFrame, filtered_df: pd.DataFrame,
-                   output_dir: str, log_fn) -> str:
+                   output_dir: str, log_fn, after_6pm: bool = False) -> str:
     """Build the full workbook and save it. Returns the output path."""
     log_fn("📝 إنشاء ملف Excel...")
     wb = Workbook()
@@ -286,7 +286,8 @@ def build_workbook(raw_df: pd.DataFrame, filtered_df: pd.DataFrame,
     save_dir = Path(output_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
     today    = date.today().strftime("%Y-%m-%d")
-    base     = f"بيان تسليم الارساليات الصادرة - {today}"
+    suffix   = " - بعد 6 مساءً" if after_6pm else ""
+    base     = f"بيان تسليم الارساليات الصادرة - {today}{suffix}"
     out_path = save_dir / f"{base}.xlsx"
     if out_path.exists():
         i = 1
