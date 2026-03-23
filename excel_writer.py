@@ -1,6 +1,7 @@
 """
 excel_writer.py — All Excel workbook / sheet writing logic.
 B&W print optimized — compact horizontal, tall vertical, repeat headers on new pages.
+All sheets are protected with password 507 (view-only, no edits).
 """
 
 from datetime import date
@@ -23,6 +24,8 @@ from config import (
 )
 from processor import row_notes, tafqeet
 
+SHEET_PASSWORD = "507"
+
 
 # ─────────────────────────────────────────────
 # HELPERS
@@ -31,19 +34,18 @@ def _al(h="center", v="center", ro=2, wrap=False):
     return Alignment(horizontal=h, vertical=v, readingOrder=ro, wrap_text=wrap)
 
 
+def _protect(ws: Worksheet):
+    """Lock sheet with password — read-only, no cell edits."""
+    ws.protection.sheet          = True
+    ws.protection.password       = SHEET_PASSWORD
+    ws.protection.enable()
+
+
 def _auto_col_widths(ws: Worksheet, num_cols: int, num_data_rows: int,
                      dispatch_col: int = 4):
-    """
-    Distribute column widths to fill A4 portrait width minus 50pt each side.
-    A4 usable width at 0.30in margins ≈ 64 Excel units.
-    50pt each side ≈ 3.5 Excel units each → usable ≈ 57 Excel units total.
-    رقم الارسالية (dispatch_col) keeps its exact content width.
-    Remaining width distributed proportionally among other columns by content ratio.
-    """
-    TOTAL_WIDTH   = 80.0          # Excel width units for the full table
-    MIN_COL       = 3.0           # minimum any non-dispatch column
+    TOTAL_WIDTH = 80.0
+    MIN_COL     = 3.0
 
-    # Step 1: measure content width of every column (skip merged)
     merged_set = set()
     for rng in ws.merged_cells.ranges:
         for row_cells in rng.cells:
@@ -67,20 +69,14 @@ def _auto_col_widths(ws: Worksheet, num_cols: int, num_data_rows: int,
             max_len = max(max_len, latin + arabic * 1.4)
         content_w[ci] = max_len
 
-    # Step 2: fix dispatch column to its content width
     dispatch_w = max(MIN_COL, content_w.get(dispatch_col, MIN_COL))
     remaining  = TOTAL_WIDTH - dispatch_w
-
-    # Step 3: distribute remaining width proportionally among other cols
-    other_cols    = [ci for ci in range(1, num_cols + 1) if ci != dispatch_col]
-    other_total   = sum(max(content_w[ci], MIN_COL) for ci in other_cols)
-    scale         = remaining / other_total if other_total > 0 else 1.0
+    other_cols  = [ci for ci in range(1, num_cols + 1) if ci != dispatch_col]
+    other_total = sum(max(content_w[ci], MIN_COL) for ci in other_cols)
+    scale       = remaining / other_total if other_total > 0 else 1.0
 
     for ci in range(1, num_cols + 1):
-        if ci == dispatch_col:
-            w = dispatch_w
-        else:
-            w = max(MIN_COL, content_w[ci]) * scale
+        w = dispatch_w if ci == dispatch_col else max(MIN_COL, content_w[ci]) * scale
         ws.column_dimensions[get_column_letter(ci)].width = round(w, 2)
 
 
@@ -108,37 +104,32 @@ def write_sector(wb: Workbook, sdf: pd.DataFrame, sector: str) -> tuple[int, flo
     ws.sheet_view.rightToLeft = True
     today_str = date.today().strftime("%Y-%m-%d")
 
-    # ── Row 1: institution title ──
+    # Row 1: institution title
     ws.merge_cells("A1:G1")
     c = ws.cell(row=1, column=1, value=CENTER_TITLE)
     c.font = Font(bold=True, name="Arial", size=14, color=C_BLACK)
-    c.fill = WHITE_FILL
-    c.alignment = _al("center")
+    c.fill = WHITE_FILL; c.alignment = _al("center")
     ws.row_dimensions[1].height = 24
 
-    # ── Row 2: report title + sector + date ──
+    # Row 2: report title + sector + date
     ws.merge_cells("A2:G2")
     c = ws.cell(row=2, column=1,
                 value=f"بيان تسليم الارساليات الصادرة  ◈  {sector}  ◈  {today_str}")
     c.font = Font(bold=True, name="Arial", size=12, color=C_BLACK)
-    c.fill = ODD_FILL
-    c.alignment = _al("center")
+    c.fill = ODD_FILL; c.alignment = _al("center")
     ws.row_dimensions[2].height = 22
 
-    # ── Row 3: column headers ──
-    # RTL: [ملاحظات cols 1-2] [الوزن] [رقم الارسالية] [اسم مركز الحركة] [الكود] [م]
+    # Row 3: column headers
     ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=2)
     ch = ws.cell(row=3, column=1, value=NOTES_MERGE_HEADER)
-    ch.font = HDR_FONT; ch.fill = HEADER_FILL
-    ch.alignment = _al("center")
+    ch.font = HDR_FONT; ch.fill = HEADER_FILL; ch.alignment = _al("center")
 
     for ci, h in enumerate(["الوزن", "رقم الارسالية", "اسم مركز الحركة", "الكود", "م"], 3):
         c = ws.cell(row=3, column=ci, value=h)
-        c.font = HDR_FONT; c.fill = HEADER_FILL
-        c.alignment = _al("center")
+        c.font = HDR_FONT; c.fill = HEADER_FILL; c.alignment = _al("center")
     ws.row_dimensions[3].height = 20
 
-    # ── Data rows ──
+    # Data rows
     sdf = sdf.copy()
     sdf["_sort_no"] = pd.to_numeric(sdf["dispatch_no"], errors="coerce")
     sdf = sdf.sort_values(["office_name", "_sort_no"],
@@ -173,7 +164,7 @@ def write_sector(wb: Workbook, sdf: pd.DataFrame, sector: str) -> tuple[int, flo
     num_offices  = sdf["office_name"].nunique()
     sr           = total_count + 4
 
-    # ── Status summary — flush under last data row ──
+    # Status summary
     ws.merge_cells(start_row=sr, start_column=1, end_row=sr, end_column=2)
     c1 = ws.cell(row=sr, column=1,
                  value="إجمالي الوزن" + chr(10) + f"{total_weight:.3f} كجم")
@@ -196,77 +187,67 @@ def write_sector(wb: Workbook, sdf: pd.DataFrame, sector: str) -> tuple[int, flo
     c3.alignment = _al("center", wrap=True)
     ws.row_dimensions[sr].height = 38
 
-    # ── Signature badge — directly under summary ──
+    # Signature row
     sig = sr + 1
     ws.merge_cells(start_row=sig, start_column=1, end_row=sig, end_column=7)
-    sb = ws.cell(row=sig, column=1, value="توقيع المستلم :  .................................")
+    sb = ws.cell(row=sig, column=1,
+                 value="توقيع المستلم :  .................................")
     sb.font      = Font(bold=True, name="Arial", size=14, color=C_BLACK)
     sb.fill      = ODD_FILL
-    # sb.border    = THICK_BORDER
     sb.alignment = _al("right", wrap=False)
     ws.row_dimensions[sig].height = 28
 
     last_row = sig
-
     _auto_col_widths(ws, num_cols=7, num_data_rows=last_row)
 
-# ── Manual overrides ──
-    ws.column_dimensions["A"].width = 18   # على المكشوف
-    ws.column_dimensions["B"].width = 18   # قابل للكسر
-    ws.column_dimensions["C"].width = 10   # الوزن
-    ws.column_dimensions["D"].width = 12    # رقم الارسالية
-    ws.column_dimensions["E"].width = 16  # اسم مركز الحركة
-    ws.column_dimensions["F"].width = 8    # الكود
-    ws.column_dimensions["G"].width = 7    # م
-    
+    ws.column_dimensions["A"].width = 18
+    ws.column_dimensions["B"].width = 18
+    ws.column_dimensions["C"].width = 10
+    ws.column_dimensions["D"].width = 12
+    ws.column_dimensions["E"].width = 16
+    ws.column_dimensions["F"].width = 8
+    ws.column_dimensions["G"].width = 7
+
     ws.freeze_panes = "A4"
     _print_setup(ws, row_header_end=3)
+    _protect(ws)
 
     return total_count, total_weight
 
 
 # ─────────────────────────────────────────────
-# الاجمالى SHEET  (RTL, matching sector style)
+# الاجمالى SHEET
 # ─────────────────────────────────────────────
 def write_ijmaly(wb: Workbook, sector_totals: dict):
     ws = wb.create_sheet(title="الاجمالى")
     ws.sheet_view.rightToLeft = True
     today_str = date.today().strftime("%Y-%m-%d")
 
-    # 4 columns: م | القطاع | عدد الارساليات | الوزن (كجم)
-    # RTL display: الوزن | عدد الارساليات | القطاع | م
-
-    # ── Row 1: institution title ──
+    # Row 1: institution title
     ws.merge_cells("A1:D1")
     c = ws.cell(row=1, column=1, value=CENTER_TITLE)
-    c.font = DATE_FONT; c.fill = WHITE_FILL
-    c.alignment = _al("center")
+    c.font = DATE_FONT; c.fill = WHITE_FILL; c.alignment = _al("center")
     ws.row_dimensions[1].height = 24
 
-    # ── Row 2: report title ──
+    # Row 2: report title
     ws.merge_cells("A2:D2")
     c = ws.cell(row=2, column=1, value="بيان اجمالى الارساليات الصادرة")
-    c.font = DATE_FONT; c.fill = ODD_FILL
-    # c.border = Border(left=THICK, right=THICK, top=THIN, bottom=THICK)
-    c.alignment = _al("center")
+    c.font = DATE_FONT; c.fill = ODD_FILL; c.alignment = _al("center")
     ws.row_dimensions[2].height = 20
 
-    # ── Row 3: date ──
+    # Row 3: date
     ws.merge_cells("A3:D3")
     c = ws.cell(row=3, column=1, value=f"التاريخ :  {today_str}")
-    c.font = DATE_FONT; c.fill = WHITE_FILL
-    c.alignment = _al("center"); 
+    c.font = DATE_FONT; c.fill = WHITE_FILL; c.alignment = _al("center")
     ws.row_dimensions[3].height = 16
 
-    # ── Row 4: column headers (RTL order) ──
-    # col 1=الوزن  col 2=عدد الارساليات  col 3=القطاع  col 4=م
+    # Row 4: column headers  (RTL: col1=الوزن, col2=عدد, col3=القطاع, col4=م)
     for ci, h in enumerate(["الوزن (كجم)", "عدد الارساليات", "القطاع", "م"], 1):
         c = ws.cell(row=4, column=ci, value=h)
-        c.font = HDR_FONT; c.fill = HEADER_FILL
-        c.alignment = _al("center")
+        c.font = HDR_FONT; c.fill = HEADER_FILL; c.alignment = _al("center")
     ws.row_dimensions[4].height = 18
 
-    # ── Data rows ──
+    # Data rows
     grand_count = 0; grand_weight = 0.0
     for i, sector in enumerate(SECTOR_SHEETS, 1):
         info  = sector_totals.get(sector, {"count": 0, "weight": 0.0})
@@ -274,7 +255,6 @@ def write_ijmaly(wb: Workbook, sector_totals: dict):
         fill  = ALT_FILL if i % 2 == 0 else ODD_FILL
         grand_count  += info["count"]
         grand_weight += info["weight"]
-        # RTL values: weight | count | sector name | row number
         for ci, val in enumerate(
             [round(info["weight"], 3), info["count"], sector, i], 1
         ):
@@ -283,9 +263,8 @@ def write_ijmaly(wb: Workbook, sector_totals: dict):
             c.border = BORDER; c.alignment = _al("center")
         ws.row_dimensions[er].height = 18
 
-    # ── Totals row ──
+    # Totals row
     tr = len(SECTOR_SHEETS) + 5
-    # col 1=total weight  col 2=total count  col 3=الاجمالى merged  col 4=empty
     ws.merge_cells(start_row=tr, start_column=3, end_row=tr, end_column=4)
     for ci, val in enumerate([round(grand_weight, 3), grand_count, "الاجمالى"], 1):
         c = ws.cell(row=tr, column=ci, value=val)
@@ -293,24 +272,35 @@ def write_ijmaly(wb: Workbook, sector_totals: dict):
         c.border = THICK_BORDER; c.alignment = _al("center")
     ws.row_dimensions[tr].height = 22
 
-    _auto_col_widths(ws, num_cols=4, num_data_rows=tr)
+    # Signature row
+    sig = tr + 1
+    ws.merge_cells(start_row=sig, start_column=1, end_row=sig, end_column=4)
+    sb = ws.cell(row=sig, column=1,
+                 value="توقيع المستلم :  .................................")
+    sb.font      = Font(bold=True, name="Arial", size=14, color=C_BLACK)
+    sb.fill      = ODD_FILL
+    sb.alignment = _al("right", wrap=False)
+    ws.row_dimensions[sig].height = 30
+
+    _auto_col_widths(ws, num_cols=4, num_data_rows=sig)
     ws.column_dimensions["A"].width = 16
     ws.column_dimensions["B"].width = 14
-    ws.column_dimensions["D"].width = 16
+    ws.column_dimensions["C"].width = 16
     ws.column_dimensions["D"].width = 7
-    
-    
+
     _print_setup(ws, row_header_end=4)
+    _protect(ws)
 
 
 # ─────────────────────────────────────────────
-# MAIN EXPORT
+# MAIN EXPORT  — returns (path, sector_totals)
 # ─────────────────────────────────────────────
 def build_workbook(raw_df: pd.DataFrame, filtered_df: pd.DataFrame,
-                   output_dir: str, log_fn, after_6pm: bool = False) -> str:
+                   output_dir: str, log_fn,
+                   after_6pm: bool = False) -> tuple[str, dict]:
     log_fn("📝 إنشاء ملف Excel...")
     wb = Workbook()
-    wb.remove(wb.active)  # type: ignore
+    wb.remove(wb.active)   # type: ignore
 
     sector_totals = {}
     for sector in SECTOR_SHEETS:
@@ -327,12 +317,13 @@ def build_workbook(raw_df: pd.DataFrame, filtered_df: pd.DataFrame,
     suffix   = " - بعد 6 مساءً" if after_6pm else ""
     base     = f"بيان تسليم الارساليات الصادرة - {today}{suffix}"
     out_path = save_dir / f"{base}.xlsx"
-    if out_path.exists():
-        i = 1
-        while (save_dir / f"{base} ({i}).xlsx").exists():
-            i += 1
-        out_path = save_dir / f"{base} ({i}).xlsx"
 
+    # Overwrite if exists
+    if out_path.exists():
+        try:
+            out_path.unlink()
+        except:
+            raise RuntimeError(f"الملف مفتوح في Excel، يرجى إغلاقه أولاً:\n{out_path}")
     wb.save(out_path)
     log_fn(f"✅ تم الحفظ:\n{out_path}")
-    return str(out_path)
+    return str(out_path), sector_totals
