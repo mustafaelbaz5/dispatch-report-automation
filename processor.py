@@ -52,13 +52,20 @@ def row_notes(total_items: float) -> str:
     return "على المكشوف - قابل للكسر" if total_items == 1 else "قابل للكسر"
 
 
+def _resource_path(filename: str) -> Path:
+    """Get correct path whether running as script or PyInstaller exe."""
+    import sys
+    base = Path(getattr(sys, "_MEIPASS", Path(__file__).parent))
+    return base / filename
+
+
 def load_mapping(script_dir: Path) -> tuple[dict, set]:
     """
     Load القطاعات.xlsx from the script folder.
     Returns: (mapping dict, set of valid codes)
     mapping = { "3000": {"office_name": "إسكندرية", "sector": "بحرى"}, ... }
     """
-    path = Path(script_dir) / "القطاعات.xlsx"
+    path = _resource_path("القطاعات.xlsx")
     if not path.exists():
         raise RuntimeError(f"ملف القطاعات.xlsx غير موجود في:\n{script_dir}")
     df = pd.read_excel(path, header=0, dtype=str)
@@ -118,7 +125,7 @@ def load_and_filter(source_path: str, after_6pm: bool, log_fn) -> tuple[pd.DataF
 
     # ── Apply filters ──
     df = df[df["status"].str.lower().isin(VALID_STATUSES)]
-    log_fn(f"   ✓ {len(df)} بعد فلتر الحالة (Closed / FullyReceived)")
+    log_fn(f"   ✓ {len(df)} بعد فلتر الحالة (Closed فقط)")
 
     df = df[df["total_items"] > 0]
     log_fn(f"   ✓ {len(df)} بعد فلتر العناصر > 0")
