@@ -65,14 +65,14 @@ GOLD_BG_FILL = SUBHDR_FILL
 # ─────────────────────────────────────────────
 # FONTS  (all black — print-safe)
 # ─────────────────────────────────────────────
-BIG_FONT   = Font(bold=True, color=C_WHITE,      name="Arial", size=14)
-HDR_FONT   = Font(bold=True, color=C_WHITE,      name="Arial", size=12)
+BIG_FONT   = Font(bold=True, color=C_WHITE,      name="Tajacheherazade Newwal", size=14)
+HDR_FONT   = Font(bold=True, color=C_WHITE,      name="cheherazade New", size=12)
 SUBHDR_FONT= Font(bold=True, color=C_WHITE,      name="Arial", size=12)
 GOLD_FONT  = Font(bold=True, color=C_WHITE,      name="Arial", size=12)
 SUM_FONT   = Font(bold=True, color=C_WHITE,      name="Arial", size=12)
-DATA_FONT  = Font(           color=C_BLACK,      name="Arial", size=11)
+DATA_FONT  = Font(           color=C_BLACK,      name="Tajawal", size=12)
 SIG_FONT   = Font(italic=True,color=C_DARK,      name="Arial", size=9)
-DATE_FONT  = Font(bold=True, color=C_BLACK,      name="Arial", size=12)
+DATE_FONT  = Font(bold=True, color=C_BLACK,      name="cheherazade New", size=14)
 STAT_FONT  = Font(bold=True, color=C_WHITE,      name="Arial", size=12)
 
 # ─────────────────────────────────────────────

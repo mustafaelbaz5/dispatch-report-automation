@@ -32,7 +32,18 @@ def _al(h="center", v="center", ro=2, wrap=False):
 
 
 def _auto_col_widths(ws: Worksheet, num_cols: int, num_data_rows: int,
-                     max_w: float = 30):
+                     dispatch_col: int = 4):
+    """
+    Distribute column widths to fill A4 portrait width minus 50pt each side.
+    A4 usable width at 0.30in margins ≈ 64 Excel units.
+    50pt each side ≈ 3.5 Excel units each → usable ≈ 57 Excel units total.
+    رقم الارسالية (dispatch_col) keeps its exact content width.
+    Remaining width distributed proportionally among other columns by content ratio.
+    """
+    TOTAL_WIDTH   = 80.0          # Excel width units for the full table
+    MIN_COL       = 3.0           # minimum any non-dispatch column
+
+    # Step 1: measure content width of every column (skip merged)
     merged_set = set()
     for rng in ws.merged_cells.ranges:
         for row_cells in rng.cells:
@@ -41,8 +52,9 @@ def _auto_col_widths(ws: Worksheet, num_cols: int, num_data_rows: int,
             else:
                 merged_set.add((row_cells.row, row_cells.column))
 
+    content_w = {}
     for ci in range(1, num_cols + 1):
-        max_len = 0
+        max_len = MIN_COL
         for ri in range(1, num_data_rows + 2):
             if (ri, ci) in merged_set:
                 continue
@@ -52,15 +64,24 @@ def _auto_col_widths(ws: Worksheet, num_cols: int, num_data_rows: int,
             text   = str(val)
             latin  = sum(1 for ch in text if ord(ch) < 0x0600)
             arabic = len(text) - latin
-            max_len = max(max_len, latin + arabic * 1.35)
+            max_len = max(max_len, latin + arabic * 1.4)
+        content_w[ci] = max_len
 
-        if ci == 5:
-            cap = 14
-        elif ci == 4:
-            cap = max(max_len, 3)
+    # Step 2: fix dispatch column to its content width
+    dispatch_w = max(MIN_COL, content_w.get(dispatch_col, MIN_COL))
+    remaining  = TOTAL_WIDTH - dispatch_w
+
+    # Step 3: distribute remaining width proportionally among other cols
+    other_cols    = [ci for ci in range(1, num_cols + 1) if ci != dispatch_col]
+    other_total   = sum(max(content_w[ci], MIN_COL) for ci in other_cols)
+    scale         = remaining / other_total if other_total > 0 else 1.0
+
+    for ci in range(1, num_cols + 1):
+        if ci == dispatch_col:
+            w = dispatch_w
         else:
-            cap = max_w
-        ws.column_dimensions[get_column_letter(ci)].width = max(3, min(max_len, cap))
+            w = max(MIN_COL, content_w[ci]) * scale
+        ws.column_dimensions[get_column_letter(ci)].width = round(w, 2)
 
 
 def _print_setup(ws: Worksheet, row_header_end: int = 3):
@@ -90,31 +111,32 @@ def write_sector(wb: Workbook, sdf: pd.DataFrame, sector: str) -> tuple[int, flo
     # ── Row 1: institution title ──
     ws.merge_cells("A1:G1")
     c = ws.cell(row=1, column=1, value=CENTER_TITLE)
-    c.font = BIG_FONT; c.fill = HEADER_FILL
-    c.alignment = _al("center"); c.border = THICK_BORDER
-    ws.row_dimensions[1].height = 22
+    c.font = Font(bold=True, name="Arial", size=14, color=C_BLACK)
+    c.fill = WHITE_FILL
+    c.alignment = _al("center")
+    ws.row_dimensions[1].height = 24
 
     # ── Row 2: report title + sector + date ──
     ws.merge_cells("A2:G2")
     c = ws.cell(row=2, column=1,
                 value=f"بيان تسليم الارساليات الصادرة  ◈  {sector}  ◈  {today_str}")
-    c.font = GOLD_FONT; c.fill = SUBHDR_FILL
+    c.font = Font(bold=True, name="Arial", size=12, color=C_BLACK)
+    c.fill = ODD_FILL
     c.alignment = _al("center")
-    c.border = Border(left=THICK, right=THICK, top=THIN, bottom=THICK)
-    ws.row_dimensions[2].height = 18
+    ws.row_dimensions[2].height = 22
 
     # ── Row 3: column headers ──
     # RTL: [ملاحظات cols 1-2] [الوزن] [رقم الارسالية] [اسم مركز الحركة] [الكود] [م]
     ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=2)
     ch = ws.cell(row=3, column=1, value=NOTES_MERGE_HEADER)
     ch.font = HDR_FONT; ch.fill = HEADER_FILL
-    ch.border = BORDER; ch.alignment = _al("center")
+    ch.alignment = _al("center")
 
     for ci, h in enumerate(["الوزن", "رقم الارسالية", "اسم مركز الحركة", "الكود", "م"], 3):
         c = ws.cell(row=3, column=ci, value=h)
         c.font = HDR_FONT; c.fill = HEADER_FILL
-        c.border = BORDER; c.alignment = _al("center")
-    ws.row_dimensions[3].height = 16
+        c.alignment = _al("center")
+    ws.row_dimensions[3].height = 20
 
     # ── Data rows ──
     sdf = sdf.copy()
@@ -144,7 +166,7 @@ def write_sector(wb: Workbook, sdf: pd.DataFrame, sector: str) -> tuple[int, flo
             c.font = DATA_FONT; c.fill = fill
             c.border = BORDER; c.alignment = _al("center")
 
-        ws.row_dimensions[er].height = 14
+        ws.row_dimensions[er].height = 18
 
     total_count  = len(sdf)
     total_weight = sdf["weight"].sum()
@@ -178,15 +200,25 @@ def write_sector(wb: Workbook, sdf: pd.DataFrame, sector: str) -> tuple[int, flo
     sig = sr + 1
     ws.merge_cells(start_row=sig, start_column=1, end_row=sig, end_column=7)
     sb = ws.cell(row=sig, column=1, value="توقيع المستلم :  .................................")
-    sb.font      = Font(bold=True, name="Arial", size=11, color=C_BLACK)
+    sb.font      = Font(bold=True, name="Arial", size=14, color=C_BLACK)
     sb.fill      = ODD_FILL
-    sb.border    = THICK_BORDER
+    # sb.border    = THICK_BORDER
     sb.alignment = _al("right", wrap=False)
     ws.row_dimensions[sig].height = 28
 
     last_row = sig
 
     _auto_col_widths(ws, num_cols=7, num_data_rows=last_row)
+
+# ── Manual overrides ──
+    ws.column_dimensions["A"].width = 18   # على المكشوف
+    ws.column_dimensions["B"].width = 18   # قابل للكسر
+    ws.column_dimensions["C"].width = 10   # الوزن
+    ws.column_dimensions["D"].width = 12    # رقم الارسالية
+    ws.column_dimensions["E"].width = 16  # اسم مركز الحركة
+    ws.column_dimensions["F"].width = 8    # الكود
+    ws.column_dimensions["G"].width = 7    # م
+    
     ws.freeze_panes = "A4"
     _print_setup(ws, row_header_end=3)
 
@@ -207,32 +239,32 @@ def write_ijmaly(wb: Workbook, sector_totals: dict):
     # ── Row 1: institution title ──
     ws.merge_cells("A1:D1")
     c = ws.cell(row=1, column=1, value=CENTER_TITLE)
-    c.font = BIG_FONT; c.fill = HEADER_FILL
-    c.border = THICK_BORDER; c.alignment = _al("center")
-    ws.row_dimensions[1].height = 22
+    c.font = DATE_FONT; c.fill = WHITE_FILL
+    c.alignment = _al("center")
+    ws.row_dimensions[1].height = 24
 
     # ── Row 2: report title ──
     ws.merge_cells("A2:D2")
     c = ws.cell(row=2, column=1, value="بيان اجمالى الارساليات الصادرة")
-    c.font = GOLD_FONT; c.fill = SUBHDR_FILL
-    c.border = Border(left=THICK, right=THICK, top=THIN, bottom=THICK)
+    c.font = DATE_FONT; c.fill = ODD_FILL
+    # c.border = Border(left=THICK, right=THICK, top=THIN, bottom=THICK)
     c.alignment = _al("center")
-    ws.row_dimensions[2].height = 18
+    ws.row_dimensions[2].height = 20
 
     # ── Row 3: date ──
     ws.merge_cells("A3:D3")
     c = ws.cell(row=3, column=1, value=f"التاريخ :  {today_str}")
     c.font = DATE_FONT; c.fill = WHITE_FILL
-    c.alignment = _al("center"); c.border = BORDER
-    ws.row_dimensions[3].height = 14
+    c.alignment = _al("center"); 
+    ws.row_dimensions[3].height = 16
 
     # ── Row 4: column headers (RTL order) ──
     # col 1=الوزن  col 2=عدد الارساليات  col 3=القطاع  col 4=م
     for ci, h in enumerate(["الوزن (كجم)", "عدد الارساليات", "القطاع", "م"], 1):
         c = ws.cell(row=4, column=ci, value=h)
         c.font = HDR_FONT; c.fill = HEADER_FILL
-        c.border = BORDER; c.alignment = _al("center")
-    ws.row_dimensions[4].height = 16
+        c.alignment = _al("center")
+    ws.row_dimensions[4].height = 18
 
     # ── Data rows ──
     grand_count = 0; grand_weight = 0.0
@@ -249,7 +281,7 @@ def write_ijmaly(wb: Workbook, sector_totals: dict):
             c = ws.cell(row=er, column=ci, value=val)
             c.font = DATA_FONT; c.fill = fill
             c.border = BORDER; c.alignment = _al("center")
-        ws.row_dimensions[er].height = 16
+        ws.row_dimensions[er].height = 18
 
     # ── Totals row ──
     tr = len(SECTOR_SHEETS) + 5
@@ -259,9 +291,15 @@ def write_ijmaly(wb: Workbook, sector_totals: dict):
         c = ws.cell(row=tr, column=ci, value=val)
         c.font = SUM_FONT; c.fill = HEADER_FILL
         c.border = THICK_BORDER; c.alignment = _al("center")
-    ws.row_dimensions[tr].height = 20
+    ws.row_dimensions[tr].height = 22
 
     _auto_col_widths(ws, num_cols=4, num_data_rows=tr)
+    ws.column_dimensions["A"].width = 16
+    ws.column_dimensions["B"].width = 14
+    ws.column_dimensions["D"].width = 16
+    ws.column_dimensions["D"].width = 7
+    
+    
     _print_setup(ws, row_header_end=4)
 
 
