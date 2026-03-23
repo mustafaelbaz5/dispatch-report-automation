@@ -1,0 +1,27 @@
+"""
+config/__init__.py — Re-exports all config symbols so existing imports still work.
+
+    from config import CENTER_TITLE, SECTOR_SHEETS, HDR_FONT, ...
+"""
+
+from config.columns import (
+    COL_DEST_OFFICE, COL_DISPATCH_NO, COL_DATETIME,
+    COL_STATUS, COL_TOTAL_ITEMS, COL_WEIGHT,
+    VALID_STATUSES,
+)
+from config.report import (
+    CENTER_TITLE, SECTOR_SHEETS, OUT_HEADERS,
+    NOTES_MERGE_HEADER, DEFAULT_SAVE_DIR,
+)
+from config.styles import (
+    C_BLACK, C_WHITE, C_DARK, C_MID_DARK, C_MID,
+    C_LIGHT_GRAY, C_VERY_LIGHT, C_EMPTY_CELL,
+    C_NAVY,
+    HEADER_FILL, SUBHDR_FILL, ALT_FILL, WHITE_FILL, ODD_FILL,
+    SUM_FILL, SIG_FILL, EMPTY_CELL_FILL, STAT_FILL,
+    NAVY_FILL, GOLD_BG_FILL,
+    BIG_FONT, HDR_FONT, SUBHDR_FONT, GOLD_FONT, SUM_FONT,
+    DATA_FONT, SIG_FONT, DATE_FONT, STAT_FONT,
+    BORDER, THICK_BORDER, BOT_THICK, TOP_THICK,
+    THIN, THICK,
+)
