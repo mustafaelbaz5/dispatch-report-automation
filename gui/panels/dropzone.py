@@ -52,8 +52,6 @@ class DropzoneCard(ctk.CTkFrame):
 
         center = ctk.CTkFrame(self._dz, fg_color="transparent")
         center.place(relx=0.5, rely=0.5, anchor="center")
-
-        ctk.CTkLabel(center, text="⬆", font=font(20), text_color=TEXT_DIM).pack()
         self._dz_lbl = ctk.CTkLabel(center,
                                     text="اسحب ملف Excel وأفلته هنا",
                                     font=font(12, bold=True), text_color=TEXT_SEC)
