@@ -1,5 +1,6 @@
 """
 gui/dialogs/ijmaly_dialog.py — Dialog for printing the الاجمالى summary sheet.
+Updated for RTL logic (Right-to-Left).
 """
 
 import os
@@ -136,7 +137,8 @@ class IjmalyPrintDialog(ctk.CTkToplevel):
 # ── Printing logic (no GUI dependency) ───────────────────────────────────────
 
 def _al(h: str = "center", v: str = "center",
-        ro: int = 2, wrap: bool = False) -> Alignment:
+        ro: int = 1, wrap: bool = False) -> Alignment:
+    """ReadingOrder 1 is standard; sheet_view.rightToLeft handles the flip."""
     return Alignment(horizontal=h, vertical=v, readingOrder=ro, wrap_text=wrap)
 
 
@@ -146,9 +148,9 @@ def _build_and_print_ijmaly(selected_sectors: list[str],
     wb = Workbook()
     ws = wb.active
     ws.title = "الاجمالى"
-    # ws.sheet_view.rightToLeft = True
+    ws.sheet_view.rightToLeft = True
 
-    # Title rows
+    # Title rows (Reversed logic for headers)
     for row, value, fill in [
         (1, CENTER_TITLE,                       PatternFill("solid", start_color="FFFFFF", end_color="FFFFFF")),
         (2, "بيان اجمالى الارساليات الصادرة",  PatternFill("solid", start_color="F2F2F2", end_color="F2F2F2")),
@@ -156,18 +158,19 @@ def _build_and_print_ijmaly(selected_sectors: list[str],
     ]:
         ws.merge_cells(f"A{row}:D{row}")
         c = ws.cell(row=row, column=1, value=value)
-        c.font = Font(bold=True, name="Arial", size=13 if row == 2 else 14, color=C_BLACK)
+        c.font = Font(bold=True, name="Zain", size=13 if row == 2 else 14, color=C_BLACK)
         c.fill = fill; c.alignment = _al("center")
 
     ws.row_dimensions[1].height = 24
-    ws.row_dimensions[2].height = 20
-    ws.row_dimensions[3].height = 16
+    ws.row_dimensions[2].height = 22
+    ws.row_dimensions[3].height = 22
 
-    # Column headers
-    for ci, header in enumerate(["الوزن (كجم)", "عدد الارساليات", "القطاع", "م"], 1):
+    # Column headers (RTL order: م | القطاع | عدد الارساليات | الوزن)
+    headers = ["م", "القطاع", "عدد الارساليات", "الوزن (كجم)"]
+    for ci, header in enumerate(headers, 1):
         c = ws.cell(row=4, column=ci, value=header)
         c.font = HDR_FONT; c.fill = HEADER_FILL; c.alignment = _al("center")
-    ws.row_dimensions[4].height = 18
+    ws.row_dimensions[4].height = 20
 
     # Data rows
     grand_count = 0; grand_weight = 0.0
@@ -177,34 +180,48 @@ def _build_and_print_ijmaly(selected_sectors: list[str],
         fill = ALT_FILL if i % 2 == 0 else ODD_FILL
         grand_count  += info["count"]
         grand_weight += info["weight"]
-        for ci, val in enumerate([round(info["weight"], 3), info["count"], sector, i], 1):
+        
+        # RTL Row Mapping
+        row_values = [i, sector, info["count"], round(info["weight"], 3)]
+        
+        for ci, val in enumerate(row_values, 1):
             c = ws.cell(row=er, column=ci, value=val)
             c.font = DATA_FONT; c.fill = fill
             c.border = BORDER; c.alignment = _al("center")
-        ws.row_dimensions[er].height = 18
+        ws.row_dimensions[er].height = 20
 
     # Totals row
     tr = len(selected_sectors) + 5
-    ws.merge_cells(start_row=tr, start_column=3, end_row=tr, end_column=4)
-    for ci, val in enumerate([round(grand_weight, 3), grand_count, "الاجمالى"], 1):
+    # Merge A and B for "الاجمالى"
+    ws.merge_cells(start_row=tr, start_column=1, end_row=tr, end_column=2)
+    
+    total_data = {1: "الاجمالى", 3: grand_count, 4: round(grand_weight, 3)}
+    for ci, val in total_data.items():
         c = ws.cell(row=tr, column=ci, value=val)
         c.font = SUM_FONT; c.fill = HEADER_FILL
         c.border = THICK_BORDER; c.alignment = _al("center")
+    
+    # Ensure Column B in Totals row has border too (even though it's merged)
+    ws.cell(row=tr, column=2).border = THICK_BORDER
     ws.row_dimensions[tr].height = 22
 
     # Signature row
     sig = tr + 1
     ws.merge_cells(start_row=sig, start_column=1, end_row=sig, end_column=4)
-    sb = ws.cell(row=sig, column=1, value="توقيع المستلم :  .................................")
-    sb.font      = Font(bold=True, name="Arial", size=14, color=C_BLACK)
-    sb.fill      = PatternFill("solid", start_color="F2F2F2", end_color="F2F2F2")
-    sb.alignment = _al("right")
-    ws.row_dimensions[sig].height = 30
+    sb = ws.cell(row=sig, column=1,
+                 value= " ........................... توقيع المستلم ")
+    sb.font      = Font(bold=True, name="Tajawal", size=12, color=C_BLACK)
+    sb.fill      = ODD_FILL
+    sb.alignment = _al("right", wrap=False)
+    ws.row_dimensions[sig].height = 38
 
-    ws.column_dimensions["A"].width = 16
-    ws.column_dimensions["B"].width = 14
-    ws.column_dimensions["C"].width = 16
-    ws.column_dimensions["D"].width = 7
+    # Column Widths (A=Index, B=Sector, C=Count, D=Weight)
+    ws.column_dimensions["A"].width = 7
+    ws.column_dimensions["B"].width = 16
+    ws.column_dimensions["C"].width = 14
+    ws.column_dimensions["D"].width = 16
+    
+    # Page setup
     ws.page_setup.orientation = "portrait"
     ws.page_setup.paperSize   = 9
     ws.page_setup.fitToPage   = True

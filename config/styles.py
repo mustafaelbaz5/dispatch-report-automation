@@ -37,15 +37,15 @@ NAVY_FILL    = HEADER_FILL
 GOLD_BG_FILL = SUBHDR_FILL
 
 # ── Fonts (all black — print-safe) ────────────────────────────────────────────
-BIG_FONT    = Font(bold=True,   color=C_WHITE, name="Scheherazade New", size=14)
-HDR_FONT    = Font(bold=True,   color=C_WHITE, name="Scheherazade New", size=12)
-SUBHDR_FONT = Font(bold=True,   color=C_WHITE, name="Arial",            size=12)
-GOLD_FONT   = Font(bold=True,   color=C_WHITE, name="Arial",            size=12)
-SUM_FONT    = Font(bold=True,   color=C_WHITE, name="Arial",            size=12)
+BIG_FONT    = Font(bold=True,   color=C_WHITE, name="Zain", size=14)
+HDR_FONT    = Font(bold=True,   color=C_WHITE, name="Zain", size=12)
+SUBHDR_FONT = Font(bold=True,   color=C_WHITE, name="Zain",            size=12)
+GOLD_FONT   = Font(bold=True,   color=C_WHITE, name="Zain",            size=12)
+SUM_FONT    = Font(bold=True,   color=C_WHITE, name="Zain",            size=12)
 DATA_FONT   = Font(             color=C_BLACK, name="Tajawal",          size=12)
-SIG_FONT    = Font(italic=True, color=C_DARK,  name="Arial",            size=9)
-DATE_FONT   = Font(bold=True,   color=C_BLACK, name="Scheherazade New", size=14)
-STAT_FONT   = Font(bold=True,   color=C_WHITE, name="Arial",            size=12)
+SIG_FONT    = Font(italic=True, color=C_DARK,  name="Zain",            size=9)
+DATE_FONT   = Font(bold=True,   color=C_BLACK, name="Zain", size=14)
+STAT_FONT   = Font(bold=True,   color=C_WHITE, name="Zain",            size=12)
 
 # ── Borders (all black — print-safe) ─────────────────────────────────────────
 _THIN  = Side(style="thin",   color=C_BLACK)
