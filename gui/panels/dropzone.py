@@ -46,7 +46,7 @@ class DropzoneCard(ctk.CTkFrame):
 
     def _build_dropzone(self, parent: ctk.CTkFrame) -> None:
         self._dz = ctk.CTkFrame(parent, fg_color=BG_INPUT, corner_radius=10,
-                                border_width=2, border_color=BORDER, height=130)
+                                border_width=2, border_color=BORDER, height=180)
         self._dz.pack(fill="x", pady=(0, 10))
         self._dz.pack_propagate(False)
 

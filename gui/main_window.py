@@ -83,11 +83,7 @@ class MainWindow(ctk.CTk):
         self.update_idletasks()
         sw = self.winfo_screenwidth()
         sh = self.winfo_screenheight()
-        # عرض النافذة في المنتصف بشكل أفضل
-        width, height = 580, 650
-        x = (sw // 2) - (width // 2)
-        y = (sh // 2) - (height // 2)
-        self.geometry(f"{width}x{height}+{x}+{y}")
+        self.geometry(f"{sw // 2}x{sh - 80}+0+0")
         self.resizable(True, True)
 
     def _build_ui(self) -> None:
