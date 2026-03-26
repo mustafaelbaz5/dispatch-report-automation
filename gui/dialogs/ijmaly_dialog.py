@@ -146,7 +146,7 @@ def _build_and_print_ijmaly(selected_sectors: list[str],
     wb = Workbook()
     ws = wb.active
     ws.title = "الاجمالى"
-    ws.sheet_view.rightToLeft = True
+    # ws.sheet_view.rightToLeft = True
 
     # Title rows
     for row, value, fill in [

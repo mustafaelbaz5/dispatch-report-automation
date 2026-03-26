@@ -193,7 +193,6 @@ def write_sector(wb: Workbook, sdf: pd.DataFrame,
     Write one sector sheet and return (total_count, total_weight).
     """
     ws = wb.create_sheet(title=sector)
-    ws.sheet_view.rightToLeft = True
     today_str = date.today().strftime("%Y-%m-%d")
 
     _write_title_rows(ws, today_str, sector)
@@ -226,7 +225,6 @@ def write_sector(wb: Workbook, sdf: pd.DataFrame,
 def write_ijmaly(wb: Workbook, sector_totals: dict) -> None:
     """Write the الاجمالى summary sheet."""
     ws = wb.create_sheet(title="الاجمالى")
-    ws.sheet_view.rightToLeft = True
     today_str = date.today().strftime("%Y-%m-%d")
 
     # Title rows
